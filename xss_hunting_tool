@@ -3,6 +3,10 @@ from bs4 import BeautifulSoup
 import logging
 import concurrent.futures
 import time
+from colorama import init, Fore, Style
+
+# Initialize colorama
+init(autoreset=True)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -27,14 +31,13 @@ dom_xss_patterns = [
     "window.location", "eval", "innerHTML", "location.href"
 ]
 
-def check_reflected_xss(url, param):
+def check_reflected_xss(url):
     for payload in xss_payloads:
         try:
-            logger.info(f"Testing parameter {param} with payload: {payload}")
-            params = {param: payload}
-            response = requests.get(url, params=params, timeout=5)
+            logger.info(f"Testing for Reflected XSS with payload: {payload}")
+            response = requests.get(url, params={"param": payload}, timeout=5)
             if payload in response.text:
-                logger.warning(f"[Reflected XSS] Vulnerability found with payload: {payload} on parameter: {param}")
+                logger.warning(f"{Fore.GREEN}[Reflected XSS] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -48,7 +51,7 @@ def check_dom_xss(url):
         for script in scripts:
             for pattern in dom_xss_patterns:
                 if pattern in script.text:
-                    logger.warning(f"[DOM XSS] Pattern found: {pattern}")
+                    logger.warning(f"{Fore.GREEN}[DOM XSS] Pattern found: {pattern}{Style.RESET_ALL}")
                     return True
     except requests.RequestException as e:
         logger.error(f"Request failed: {e}")
@@ -60,53 +63,50 @@ def check_stored_xss(url):
         soup = BeautifulSoup(response.content, 'html.parser')
         for payload in xss_payloads:
             if payload in str(soup):
-                logger.warning(f"[Stored XSS] Vulnerability found with payload: {payload}")
+                logger.warning(f"{Fore.GREEN}[Stored XSS] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
     except requests.RequestException as e:
         logger.error(f"Request failed: {e}")
     return False
 
-def check_sql_injection(url, param):
+def check_sql_injection(url):
     for payload in sql_payloads:
         try:
-            logger.info(f"Testing parameter {param} with SQL payload: {payload}")
-            params = {param: payload}
-            response = requests.get(url, params=params, timeout=15)
+            logger.info(f"Testing for SQL Injection with payload: {payload}")
+            response = requests.get(url, params={"param": payload}, timeout=15)
             if "syntax error" in response.text.lower() or "mysql" in response.text.lower():
-                logger.warning(f"[SQL Injection] Error-based vulnerability found with payload: {payload} on parameter: {param}")
+                logger.warning(f"{Fore.GREEN}[SQL Injection] Error-based vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
             # Blind time-based check
             start_time = time.time()
-            response = requests.get(url, params=params, timeout=15)
+            response = requests.get(url, params={"param": payload}, timeout=15)
             end_time = time.time()
             if end_time - start_time > 10:
-                logger.warning(f"[SQL Injection] Time-based vulnerability found with payload: {payload} on parameter: {param}")
+                logger.warning(f"{Fore.GREEN}[SQL Injection] Time-based vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
     return False
 
-def check_html_injection(url, param):
+def check_html_injection(url):
     for payload in html_payloads:
         try:
-            logger.info(f"Testing parameter {param} with HTML payload: {payload}")
-            params = {param: payload}
-            response = requests.get(url, params=params, timeout=5)
+            logger.info(f"Testing for HTML Injection with payload: {payload}")
+            response = requests.get(url, params={"param": payload}, timeout=5)
             if payload in response.text:
-                logger.warning(f"[HTML Injection] Vulnerability found with payload: {payload} on parameter: {param}")
+                logger.warning(f"{Fore.GREEN}[HTML Injection] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
     return False
 
-def check_js_injection(url, param):
+def check_js_injection(url):
     for payload in js_payloads:
         try:
-            logger.info(f"Testing parameter {param} with JS payload: {payload}")
-            params = {param: payload}
-            response = requests.get(url, params=params, timeout=5)
+            logger.info(f"Testing for JS Injection with payload: {payload}")
+            response = requests.get(url, params={"param": payload}, timeout=5)
             if payload in response.text:
-                logger.warning(f"[JS Injection] Vulnerability found with payload: {payload} on parameter: {param}")
+                logger.warning(f"{Fore.GREEN}[JS Injection] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -115,21 +115,20 @@ def check_js_injection(url, param):
 def main():
     print(banner)
     url = input("Enter the URL to test: ").strip()
-    param = input("Enter the parameter to test (leave blank for none): ").strip()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = []
-        if param:
-            futures.append(executor.submit(check_reflected_xss, url, param))
-            futures.append(executor.submit(check_sql_injection, url, param))
-            futures.append(executor.submit(check_html_injection, url, param))
-            futures.append(executor.submit(check_js_injection, url, param))
-        futures.append(executor.submit(check_dom_xss, url))
-        futures.append(executor.submit(check_stored_xss, url))
+        futures = [
+            executor.submit(check_reflected_xss, url),
+            executor.submit(check_dom_xss, url),
+            executor.submit(check_stored_xss, url),
+            executor.submit(check_sql_injection, url),
+            executor.submit(check_html_injection, url),
+            executor.submit(check_js_injection, url)
+        ]
 
         for future in concurrent.futures.as_completed(futures):
             if future.result():
-                logger.info("Vulnerability check completed with vulnerabilities found.")
+                logger.info(f"{Fore.GREEN}Vulnerability check completed with vulnerabilities found.{Style.RESET_ALL}")
             else:
                 logger.info("Vulnerability check completed with no vulnerabilities found.")
 
