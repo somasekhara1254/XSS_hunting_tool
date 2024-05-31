@@ -31,6 +31,16 @@ dom_xss_patterns = [
     "window.location", "eval", "innerHTML", "location.href"
 ]
 
+# Severity levels for each vulnerability type
+severity_levels = {
+    "Reflected XSS": "P1 - Critical",
+    "DOM XSS": "P2 - High",
+    "Stored XSS": "P2 - High",
+    "SQL Injection": "P1 - Critical",
+    "HTML Injection": "P2 - High",
+    "JavaScript Injection": "P2 - High"
+}
+
 def check_reflected_xss(url):
     for payload in xss_payloads:
         try:
@@ -103,10 +113,10 @@ def check_html_injection(url):
 def check_js_injection(url):
     for payload in js_payloads:
         try:
-            logger.info(f"Testing for JS Injection with payload: {payload}")
+            logger.info(f"Testing for JavaScript Injection with payload: {payload}")
             response = requests.get(url, params={"param": payload}, timeout=5)
             if payload in response.text:
-                logger.warning(f"{Fore.GREEN}[JS Injection] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
+                logger.warning(f"{Fore.GREEN}[JavaScript Injection] Vulnerability found with payload: {payload}{Style.RESET_ALL}")
                 return True
         except requests.RequestException as e:
             logger.error(f"Request failed: {e}")
@@ -117,18 +127,17 @@ def main():
     url = input("Enter the URL to test: ").strip()
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-        futures = [
-            executor.submit(check_reflected_xss, url),
-            executor.submit(check_dom_xss, url),
-            executor.submit(check_stored_xss, url),
-            executor.submit(check_sql_injection, url),
-            executor.submit(check_html_injection, url),
-            executor.submit(check_js_injection, url)
-        ]
+        futures = []
+        futures.append(executor.submit(check_reflected_xss, url))
+        futures.append(executor.submit(check_dom_xss, url))
+        futures.append(executor.submit(check_stored_xss, url))
+        futures.append(executor.submit(check_sql_injection, url))
+        futures.append(executor.submit(check_html_injection, url))
+        futures.append(executor.submit(check_js_injection, url))
 
         for future in concurrent.futures.as_completed(futures):
             if future.result():
-                logger.info(f"{Fore.GREEN}Vulnerability check completed with vulnerabilities found.{Style.RESET_ALL}")
+                logger.info(f"{Fore.GREEN}Vulnerability check completed with vulnerabilities found: {severity_levels[future.result()]}{Style.RESET_ALL}")
             else:
                 logger.info("Vulnerability check completed with no vulnerabilities found.")
 
