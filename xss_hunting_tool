@@ -1,6 +1,4 @@
-To automate the process of checking all vulnerabilities on a website without specifying a particular vulnerability type, you can modify the script to check for all vulnerabilities iteratively. Additionally, you can define the severity levels for each vulnerability type and prioritize them accordingly. Below is the modified script:
 
-```python
 import requests
 from bs4 import BeautifulSoup
 import logging
